@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理類別</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        nav a {
+            margin: 0 15px;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: white;
+            background-color: #007bff; /* 藍色背景 */
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #0056b3; /* 深藍色背景 */
+        }
+        form {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"] {
+            padding: 10px;
+            margin: 0 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 150px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            margin: 5px 0;
+        }
+        .back-home {
+            display: block;
+            text-align: center;
+            margin: 20px 0;
+            text-decoration: none;
+            color: #007bff;
+        }
+    </style>
+    <script>
+        function confirmDelete(categoryType, categoryToDelete) {
+            const newCategorySelect = document.createElement('select');
+            newCategorySelect.name = 'new_category';
+            newCategorySelect.required = true;
+
+            const defaultOption = document.createElement('option');
+            defaultOption.value = '';
+            defaultOption.textContent = '選擇轉換到的類別...';
+            newCategorySelect.appendChild(defaultOption);
+
+            // 添加選項
+            const categories = categoryType === 'income' ? {{ categories['income']|tojson }} : {{ categories['expense']|tojson }};
+            categories.forEach(function(category) {
+                const option = document.createElement('option');
+                option.value = category.name;  // 使用類別名稱
+                option.textContent = category.name;  // 顯示類別名稱
+                newCategorySelect.appendChild(option);
+            });
+
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/delete_category';
+
+            const categoryTypeInput = document.createElement('input');
+            categoryTypeInput.type = 'hidden';
+            categoryTypeInput.name = 'category_type';
+            categoryTypeInput.value = categoryType;
+
+            const categoryToDeleteInput = document.createElement('input');
+            categoryToDeleteInput.type = 'hidden';
+            categoryToDeleteInput.name = 'category_id';  // 確保這裡的名稱與後端一致
+            categoryToDeleteInput.value = categoryToDelete;
+
+            form.appendChild(categoryTypeInput);
+            form.appendChild(categoryToDeleteInput);
+            form.appendChild(newCategorySelect);
+
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.textContent = '確認刪除';
+            submitButton.style.backgroundColor = 'red';
+            submitButton.style.color = 'white';
+            form.appendChild(submitButton);
+
+            document.body.appendChild(form);
+            form.submit();
+        }
+    </script>
+</head>
+<body>
+    <h1>管理類別</h1>
+    <nav>
+        <a href="/">首頁</a>
+        <a href="/manage_categories">管理類別</a>
+    </nav>
+    <a class="back-home" href="/">返回首頁</a>
+    <form action="/manage_categories" method="POST">
+        <select name="category_type" required>
+            <option value="income">收入</option>
+            <option value="expense">支出</option>
+        </select>
+        <input type="text" name="new_category" placeholder="新增類別" required>
+        <button type="submit">新增</button>
+    </form>
+    <h2>收入類別</h2>
+    <ul>
+        {% for category in categories['income'] %}
+        <li>
+            {{ category.name }}
+            <button onclick="confirmDelete('income', '{{ category.id }}')" style="background-color: red; color: white;">刪除</button>
+        </li>
+        {% endfor %}
+    </ul>
+    <h2>支出類別</h2>
+    <ul>
+        {% for category in categories['expense'] %}
+        <li>
+            {{ category.name }}
+            <button onclick="confirmDelete('expense', '{{ category.id }}')" style="background-color: red; color: white;">刪除</button>
+        </li>
+        {% endfor %}
+    </ul>
+</body>
+</html>

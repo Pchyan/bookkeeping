@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>記帳程式</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        nav {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+        }
+        nav a {
+            margin: 0 15px;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: white;
+            background-color: #007bff; /* 藍色背景 */
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        nav a:hover {
+            background-color: #0056b3; /* 深藍色背景 */
+        }
+        form {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        input[type="text"], input[type="number"], select {
+            padding: 10px;
+            margin: 0 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            width: 150px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #218838;
+        }
+        .delete-button {
+            background-color: red;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 10px 15px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .delete-button:hover {
+            background-color: darkred; /* 深紅色背景 */
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        th, td {
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #f8f9fa;
+        }
+    </style>
+    <script>
+        function updateSubcategories() {
+            const categorySelect = document.querySelector('select[name="category"]');
+            const subcategorySelect = document.querySelector('select[name="subcategory"]');
+            const incomeCategories = {{ categories['income']|tojson }};
+            const expenseCategories = {{ categories['expense']|tojson }};
+            
+            const selectedCategory = categorySelect.value;
+            subcategorySelect.innerHTML = '<option value="">選擇子類別...</option>'; // 清空選項
+
+            let options = selectedCategory === 'income' ? incomeCategories : expenseCategories;
+
+            options.forEach(function(category) {
+                const option = document.createElement('option');
+                option.value = category.name;  // 使用類別名稱
+                option.textContent = category.name;  // 顯示類別名稱
+                subcategorySelect.appendChild(option);
+            });
+        }
+        function deleteSelected() {
+            const checkboxes = document.querySelectorAll('input[name="transactionCheckbox"]:checked');
+            const idsToDelete = Array.from(checkboxes).map(checkbox => checkbox.value);
+            if (idsToDelete.length > 0) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/delete_transactions'; // 假設你有這個路由
+
+                idsToDelete.forEach(id => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'transaction_ids[]'; // 使用陣列來接收多個值
+                    input.value = id;
+                    form.appendChild(input);
+                });
+
+                document.body.appendChild(form);
+                form.submit();
+            } else {
+                alert('請選擇要刪除的記錄。');
+            }
+        }
+        function editTransaction(id, description, amount, category, subcategory) {
+            // 清除現有的編輯表單（如果有的話）
+            const existingForm = document.getElementById('editForm');
+            if (existingForm) {
+                existingForm.remove();
+            }
+
+            // 創建編輯表單
+            const editForm = document.createElement('form');
+            editForm.id = 'editForm';
+            editForm.method = 'POST';
+            editForm.action = '/edit_transaction';
+
+            const idInput = document.createElement('input');
+            idInput.type = 'hidden';
+            idInput.name = 'id';
+            idInput.value = id;
+
+            const descriptionInput = document.createElement('input');
+            descriptionInput.type = 'text';
+            descriptionInput.name = 'description';
+            descriptionInput.value = description;
+            descriptionInput.placeholder = '描述';
+
+            const amountInput = document.createElement('input');
+            amountInput.type = 'number';
+            amountInput.name = 'amount';
+            amountInput.value = amount;
+            amountInput.placeholder = '金額';
+
+            const categorySelect = document.createElement('select');
+            categorySelect.name = 'category';
+            const incomeOption = document.createElement('option');
+            incomeOption.value = 'income';
+            incomeOption.textContent = '收入';
+            const expenseOption = document.createElement('option');
+            expenseOption.value = 'expense';
+            expenseOption.textContent = '支出';
+            categorySelect.appendChild(incomeOption);
+            categorySelect.appendChild(expenseOption);
+
+            const subcategoryInput = document.createElement('input');
+            subcategoryInput.type = 'text';
+            subcategoryInput.name = 'subcategory';
+            subcategoryInput.value = subcategory;
+            subcategoryInput.placeholder = '子類別';
+
+            const submitButton = document.createElement('button');
+            submitButton.type = 'submit';
+            submitButton.textContent = '更新';
+
+            // 將所有元素添加到表單中
+            editForm.appendChild(idInput);
+            editForm.appendChild(descriptionInput);
+            editForm.appendChild(amountInput);
+            editForm.appendChild(categorySelect);
+            editForm.appendChild(subcategoryInput);
+            editForm.appendChild(submitButton);
+
+            // 將表單添加到頁面中
+            document.body.appendChild(editForm);
+        }
+        function confirmDelete(transactionId) {
+            if (confirm("您確定要刪除這筆記錄嗎？")) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/delete_transactions'; // 假設您有這個路由
+
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'transaction_ids[]'; // 使用陣列來接收多個值
+                input.value = transactionId;
+                form.appendChild(input);
+
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+        function sortTable(columnIndex) {
+            const table = document.querySelector("table tbody");
+            const rows = Array.from(table.rows);
+            const isNumericColumn = columnIndex === 1 || columnIndex === 4; // 金額和日期時間是數字列
+
+            rows.sort((a, b) => {
+                const aText = a.cells[columnIndex].textContent.trim();
+                const bText = b.cells[columnIndex].textContent.trim();
+
+                if (isNumericColumn) {
+                    return parseFloat(aText) - parseFloat(bText); // 數字排序
+                } else {
+                    return aText.localeCompare(bText); // 字符串排序
+                }
+            });
+
+            // 清空表格並重新添加排序後的行
+            while (table.firstChild) {
+                table.removeChild(table.firstChild);
+            }
+            rows.forEach(row => table.appendChild(row));
+        }
+        // 設置當前時間為預設值
+        window.onload = function() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份從 0 開始
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // 格式化為 YYYY-MM-DDTHH:MM
+            const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+            document.getElementById('timestamp').value = datetimeLocal;
+        };
+    </script>
+</head>
+<body>
+    <h1>記帳程式</h1>
+    <nav>
+        <a href="/">首頁</a>
+        <a href="/manage_categories">管理類別</a>
+    </nav>
+    <form action="/add" method="POST">
+        <input type="text" name="description" placeholder="描述" required>
+        <input type="number" name="amount" placeholder="金額" required>
+        <select name="category" required onchange="updateSubcategories()">
+            <option value="">選擇類別...</option>
+            <option value="income">收入</option>
+            <option value="expense">支出</option>
+        </select>
+        <select name="subcategory" required>
+            <option value="">選擇子類別...</option>
+            {% for cat in categories['income'] %}
+            <option value="{{ cat.name }}">{{ cat.name }}</option>
+            {% endfor %}
+            {% for cat in categories['expense'] %}
+            <option value="{{ cat.name }}">{{ cat.name }}</option>
+            {% endfor %}
+        </select>
+        <input type="datetime-local" name="timestamp" required id="timestamp">
+        <button type="submit">新增</button>
+    </form>
+    <table>
+        <thead>
+            <tr>
+                <th>描述</th>
+                <th onclick="sortTable(1)" style="cursor: pointer;">金額</th>
+                <th>類別</th>
+                <th onclick="sortTable(3)" style="cursor: pointer;">子類別</th>
+                <th onclick="sortTable(4)" style="cursor: pointer;">日期時間</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for transaction in transactions %}
+            <tr>
+                <td>{{ transaction.description }}</td>
+                <td>{{ transaction.amount }}</td>
+                <td>
+                    {% if transaction.category == 'income' %}
+                        收入
+                    {% elif transaction.category == 'expense' %}
+                        支出
+                    {% else %}
+                        {{ transaction.category }}
+                    {% endif %}
+                </td>
+                <td>{{ transaction.subcategory }}</td>
+                <td>{{ transaction.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</td>
+                <td>
+                    <button onclick="editTransaction('{{ transaction.id }}', '{{ transaction.description }}', '{{ transaction.amount }}', '{{ transaction.category }}', '{{ transaction.subcategory }}')">編輯</button>
+                    <button class="delete-button" onclick="confirmDelete('{{ transaction.id }}')">刪除</button>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</body>
+</html>
