@@ -89,6 +89,10 @@
         th {
             background-color: #f8f9fa;
         }
+        .sort-arrow {
+            font-size: 0.8em; /* 調整箭頭大小 */
+            margin-left: 5px; /* 增加箭頭與文字之間的間距 */
+        }
     </style>
     <script>
         function updateSubcategories() {
@@ -209,19 +213,33 @@
                 form.submit();
             }
         }
+        let sortOrder = {
+            amount: true,
+            subcategory: true,
+            datetime: true
+        };
+
         function sortTable(columnIndex) {
             const table = document.querySelector("table tbody");
             const rows = Array.from(table.rows);
             const isNumericColumn = columnIndex === 1 || columnIndex === 4; // 金額和日期時間是數字列
+
+            const columnNames = ['amount', 'subcategory', 'datetime'];
+            const columnName = columnNames[columnIndex - 1];
+
+            // 切換排序順序
+            sortOrder[columnName] = !sortOrder[columnName];
 
             rows.sort((a, b) => {
                 const aText = a.cells[columnIndex].textContent.trim();
                 const bText = b.cells[columnIndex].textContent.trim();
 
                 if (isNumericColumn) {
-                    return parseFloat(aText) - parseFloat(bText); // 數字排序
+                    return sortOrder[columnName] ? parseFloat(aText) - parseFloat(bText) : parseFloat(bText) - parseFloat(aText);
+                } else if (columnName === 'datetime') {
+                    return sortOrder[columnName] ? new Date(aText) - new Date(bText) : new Date(bText) - new Date(aText);
                 } else {
-                    return aText.localeCompare(bText); // 字符串排序
+                    return sortOrder[columnName] ? aText.localeCompare(bText) : bText.localeCompare(aText);
                 }
             });
 
@@ -230,6 +248,29 @@
                 table.removeChild(table.firstChild);
             }
             rows.forEach(row => table.appendChild(row));
+
+            // 更新箭頭顯示
+            updateSortArrows(columnName);
+        }
+
+        function updateSortArrows(columnName) {
+            const arrows = {
+                amount: document.getElementById('amountSort'),
+                subcategory: document.getElementById('subcategorySort'),
+                datetime: document.getElementById('datetimeSort')
+            };
+
+            // 清除所有箭頭
+            for (let key in arrows) {
+                arrows[key].textContent = '';
+            }
+
+            // 根據當前排序狀態顯示箭頭
+            if (sortOrder[columnName]) {
+                arrows[columnName].textContent = '↑'; // 升冪
+            } else {
+                arrows[columnName].textContent = '↓'; // 降冪
+            }
         }
         // 設置當前時間為預設值
         window.onload = function() {
@@ -244,6 +285,41 @@
             const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
             document.getElementById('timestamp').value = datetimeLocal;
         };
+
+        function filterTransactions() {
+            const filter = document.getElementById('keywordFilter').value.toLowerCase();
+            const table = document.querySelector("table tbody");
+            const rows = Array.from(table.rows);
+
+            rows.forEach(row => {
+                const description = row.cells[0].textContent.toLowerCase(); // 假設描述在第一列
+                const amount = row.cells[1].textContent.toLowerCase(); // 假設金額在第二列
+                const category = row.cells[2].textContent.toLowerCase(); // 假設類別在第三列
+                const subcategory = row.cells[3].textContent.toLowerCase(); // 假設子類別在第四列
+
+                // 檢查是否有任何單元格包含關鍵字
+                if (description.includes(filter) || amount.includes(filter) || category.includes(filter) || subcategory.includes(filter)) {
+                    row.style.display = ""; // 顯示行
+                } else {
+                    row.style.display = "none"; // 隱藏行
+                }
+            });
+        }
+
+        function sortTableBySelect() {
+            const select = document.getElementById('sortSelect');
+            const columnName = select.value;
+
+            if (columnName === "") return; // 如果沒有選擇，則不進行排序
+
+            const columnIndex = {
+                amount: 1,
+                subcategory: 3,
+                datetime: 4
+            }[columnName];
+
+            sortTable(columnIndex);
+        }
     </script>
 </head>
 <body>
@@ -252,6 +328,15 @@
         <a href="/">首頁</a>
         <a href="/manage_categories">管理類別</a>
     </nav>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <input type="text" id="keywordFilter" placeholder="輸入關鍵字篩選..." onkeyup="filterTransactions()">
+        <select id="sortSelect" onchange="sortTableBySelect()">
+            <option value="">選擇排序列...</option>
+            <option value="amount">金額</option>
+            <option value="subcategory">子類別</option>
+            <option value="datetime">日期時間</option>
+        </select>
+    </div>
     <form action="/add" method="POST">
         <input type="text" name="description" placeholder="描述" required>
         <input type="number" name="amount" placeholder="金額" required>
@@ -276,10 +361,10 @@
         <thead>
             <tr>
                 <th>描述</th>
-                <th onclick="sortTable(1)" style="cursor: pointer;">金額</th>
+                <th onclick="sortTable(1)" style="cursor: pointer;">金額 <span id="amountSort" class="sort-arrow"></span></th>
                 <th>類別</th>
-                <th onclick="sortTable(3)" style="cursor: pointer;">子類別</th>
-                <th onclick="sortTable(4)" style="cursor: pointer;">日期時間</th>
+                <th onclick="sortTable(3)" style="cursor: pointer;">子類別 <span id="subcategorySort" class="sort-arrow"></span></th>
+                <th onclick="sortTable(4)" style="cursor: pointer;">日期時間 <span id="datetimeSort" class="sort-arrow"></span></th>
                 <th>操作</th>
             </tr>
         </thead>
