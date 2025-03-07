@@ -222,10 +222,16 @@
         function sortTable(columnIndex) {
             const table = document.querySelector("table tbody");
             const rows = Array.from(table.rows);
-            const isNumericColumn = columnIndex === 1 || columnIndex === 4; // 金額和日期時間是數字列
+            const isNumericColumn = columnIndex === 1; // 只有金額是數字列
+            const isDateColumn = columnIndex === 4; // 日期時間列
 
-            const columnNames = ['amount', 'subcategory', 'datetime'];
-            const columnName = columnNames[columnIndex - 1];
+            // 修正列名對應關係
+            const columnNames = {
+                1: 'amount',
+                3: 'subcategory',
+                4: 'datetime'
+            };
+            const columnName = columnNames[columnIndex];
 
             // 切換排序順序
             sortOrder[columnName] = !sortOrder[columnName];
@@ -236,8 +242,11 @@
 
                 if (isNumericColumn) {
                     return sortOrder[columnName] ? parseFloat(aText) - parseFloat(bText) : parseFloat(bText) - parseFloat(aText);
-                } else if (columnName === 'datetime') {
-                    return sortOrder[columnName] ? new Date(aText) - new Date(bText) : new Date(bText) - new Date(aText);
+                } else if (isDateColumn) {
+                    // 正確處理日期時間排序
+                    const aDate = new Date(aText);
+                    const bDate = new Date(bText);
+                    return sortOrder[columnName] ? aDate - bDate : bDate - aDate;
                 } else {
                     return sortOrder[columnName] ? aText.localeCompare(bText) : bText.localeCompare(aText);
                 }
@@ -312,6 +321,7 @@
 
             if (columnName === "") return; // 如果沒有選擇，則不進行排序
 
+            // 修正列索引對應
             const columnIndex = {
                 amount: 1,
                 subcategory: 3,
