@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>記帳程式</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+    <!-- 引入 Chart.js 庫 -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Arial', sans-serif;
@@ -93,13 +95,43 @@
             font-size: 0.8em; /* 調整箭頭大小 */
             margin-left: 5px; /* 增加箭頭與文字之間的間距 */
         }
+        
+        /* 圖表容器樣式 */
+        .chart-container {
+            width: 100%;
+            margin: 20px auto;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+        
+        .chart-controls {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 15px;
+        }
+        
+        .chart-controls button {
+            margin: 0 10px;
+        }
+        
+        canvas {
+            max-height: 400px;
+        }
+        
+        /* 添加活動按鈕樣式 */
+        .active-chart {
+            background-color: #0056b3 !important;
+            font-weight: bold;
+        }
     </style>
     <script>
         function updateSubcategories() {
             const categorySelect = document.querySelector('select[name="category"]');
             const subcategorySelect = document.querySelector('select[name="subcategory"]');
-            const incomeCategories = {{ categories['income']|tojson }};
-            const expenseCategories = {{ categories['expense']|tojson }};
+            const incomeCategories = JSON.parse('{{ categories["income"]|tojson|safe }}');
+            const expenseCategories = JSON.parse('{{ categories["expense"]|tojson|safe }}');
             
             const selectedCategory = categorySelect.value;
             subcategorySelect.innerHTML = '<option value="">選擇子類別...</option>'; // 清空選項
@@ -330,6 +362,163 @@
 
             sortTable(columnIndex);
         }
+    
+        // 圖表相關函數
+        let currentChart = null;
+        let currentChartType = 'pie'; // 預設為圓餅圖
+        let currentDataType = 'expense'; // 預設為支出分析
+        
+        function generateChartData(dataType) {
+            const table = document.querySelector("table tbody");
+            const rows = Array.from(table.rows);
+            
+            // 按子類別分組數據
+            const categoryData = {};
+            
+            rows.forEach(row => {
+                // 根據選擇的數據類型過濾
+                const category = row.cells[2].textContent.trim();
+                const targetCategory = dataType === 'expense' ? '支出' : '收入';
+                
+                if (category !== targetCategory) return;
+                
+                const subcategory = row.cells[3].textContent.trim();
+                const amount = parseFloat(row.cells[1].textContent.trim());
+                
+                if (!categoryData[subcategory]) {
+                    categoryData[subcategory] = 0;
+                }
+                categoryData[subcategory] += amount;
+            });
+            
+            // 轉換為圖表數據格式
+            const labels = Object.keys(categoryData);
+            const data = Object.values(categoryData);
+            
+            // 生成隨機顏色
+            const colors = labels.map(() => {
+                const r = Math.floor(Math.random() * 200);
+                const g = Math.floor(Math.random() * 200);
+                const b = Math.floor(Math.random() * 200);
+                return `rgba(${r}, ${g}, ${b}, 0.7)`;
+            });
+            
+            return { labels, data, colors };
+        }
+        
+        function drawPieChart() {
+            currentChartType = 'pie';
+            updateChart();
+        }
+        
+        function drawBarChart() {
+            currentChartType = 'bar';
+            updateChart();
+        }
+        
+        function switchToExpense() {
+            currentDataType = 'expense';
+            document.getElementById('expenseBtn').classList.add('active-chart');
+            document.getElementById('incomeBtn').classList.remove('active-chart');
+            updateChart();
+        }
+        
+        function switchToIncome() {
+            currentDataType = 'income';
+            document.getElementById('incomeBtn').classList.add('active-chart');
+            document.getElementById('expenseBtn').classList.remove('active-chart');
+            updateChart();
+        }
+        
+        function updateChart() {
+            const chartData = generateChartData(currentDataType);
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            
+            // 如果已有圖表，先銷毀
+            if (currentChart) {
+                currentChart.destroy();
+            }
+            
+            // 設置標題文字
+            const titleText = currentDataType === 'expense' ? '支出分類統計' : '收入分類統計';
+            const datasetLabel = currentDataType === 'expense' ? '支出金額' : '收入金額';
+            
+            if (currentChartType === 'pie') {
+                currentChart = new Chart(ctx, {
+                    type: 'pie',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            data: chartData.data,
+                            backgroundColor: chartData.colors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'top',
+                            },
+                            title: {
+                                display: true,
+                                text: titleText + ' (佔比)'
+                            }
+                        }
+                    }
+                });
+            } else {
+                currentChart = new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: chartData.labels,
+                        datasets: [{
+                            label: datasetLabel,
+                            data: chartData.data,
+                            backgroundColor: chartData.colors,
+                            borderWidth: 1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            title: {
+                                display: true,
+                                text: titleText
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true
+                            }
+                        }
+                    }
+                });
+            }
+        }
+        
+        // 頁面載入時初始化
+        window.onload = function() {
+            const now = new Date();
+            const year = now.getFullYear();
+            const month = String(now.getMonth() + 1).padStart(2, '0'); // 月份從 0 開始
+            const day = String(now.getDate()).padStart(2, '0');
+            const hours = String(now.getHours()).padStart(2, '0');
+            const minutes = String(now.getMinutes()).padStart(2, '0');
+            
+            // 格式化為 YYYY-MM-DDTHH:MM
+            const datetimeLocal = `${year}-${month}-${day}T${hours}:${minutes}`;
+            document.getElementById('timestamp').value = datetimeLocal;
+            
+            // 初始化圖表
+            setTimeout(() => {
+                document.getElementById('expenseBtn').classList.add('active-chart');
+                updateChart();
+            }, 500); // 延遲一點時間確保DOM已完全載入
+        };
     </script>
 </head>
 <body>
@@ -402,5 +591,21 @@
             {% endfor %}
         </tbody>
     </table>
+    </form>
+        
+        <!-- 圖表分析區域 -->
+        <div class="chart-container">
+            <h2 style="text-align: center;">消費與收入分析</h2>
+            <div class="chart-controls">
+                <button onclick="switchToExpense()" id="expenseBtn" class="active-chart">支出分析</button>
+                <button onclick="switchToIncome()" id="incomeBtn">收入分析</button>
+                <span style="margin: 0 15px;">|</span>
+                <button onclick="drawPieChart()">圓餅圖</button>
+                <button onclick="drawBarChart()">長條圖</button>
+            </div>
+            <canvas id="expenseChart"></canvas>
+        </div>
+        
+        <table>
 </body>
 </html>
